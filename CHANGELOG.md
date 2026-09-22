@@ -1,5 +1,30 @@
 # Historial de cambios
 
+## 0.3.0 — 2026-09-22
+
+Ronda 4: el token de verdad. El objetivo del proyecto queda cumplido — una instalación
+desde cero ya no necesita que nadie cree un token a mano ni lo copie a ningún archivo.
+
+- Al confirmar el cotejo de la huella, Home Assistant crea un usuario administrador
+  **DoLu** (usuario normal, no de sistema, para que se pueda borrar desde Ajustes →
+  Personas) con `local_only`, le crea un token de larga duración de diez años y se lo
+  entrega al backend por el canal de la ronda 3.
+- **Emparejar durante la configuración inicial de Home Assistant está prohibido**, no
+  solo desaconsejado: el primer usuario de una instalación se convierte en su propietario,
+  y que el dueño de una casa acabe siendo "DoLu" no tiene arreglo fácil.
+- **Re-emparejar funciona.** Se revoca el token anterior antes de crear el nuevo —Home
+  Assistant solo admite uno por cliente y usuario, y el segundo fallaría con un error
+  incomprensible— y se reutiliza el usuario en vez de crear un segundo administrador. El
+  usuario se busca por su id y, si ya no hay id que seguir, por **nuestro propio token**:
+  nunca por el nombre, que el dueño de la casa puede cambiar.
+- Si algo falla a media entrega, se deshace lo que se creó: se revoca el token y se borra
+  el usuario si nació en ese intento. Un administrador huérfano en casa de alguien es
+  justo lo que este proyecto no puede permitirse dejar.
+- La pantalla de cotejo dice ahora qué va a pasar al confirmar y dónde se revoca después.
+- Cuando el backend avisa de que su `.env` tiene precedencia, se dice **antes** de crear
+  nada, en una pantalla propia: lo que se entregue se guardará pero no se usará, y la
+  persona decide con eso delante.
+
 ## 0.2.2 — 2026-09-22
 
 - **Fuera `single_config_entry` del manifest.** Con esa clave, la interfaz de Home Assistant

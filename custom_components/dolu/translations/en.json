@@ -15,7 +15,7 @@
       },
       "verify": {
         "title": "Check the fingerprint",
-        "description": "**{name}** at {host}, version {version}, proved it knows the pairing code.\n\nFingerprint of the certificate that actually served this connection:\n\n**{fingerprint}**\n\nCompare it against the one shown in the DoLu admin panel. They must match character for character. If they do not, cancel: something on the network is impersonating your backend."
+        "description": "**{name}** at {host}, version {version}, proved it knows the pairing code.\n\nFingerprint of the certificate that actually served this connection:\n\n**{fingerprint}**\n\nCompare it against the one shown in the DoLu admin panel. They must match character for character. If they do not, cancel: something on the network is impersonating your backend.\n\nOn confirming, Home Assistant will create an admin user called **DoLu**, local-network only and with no password to log in with, and hand the backend a token for it. You can revoke it at any time by deleting that user under Settings → People."
       },
       "user": {
         "title": "Add a DoLu backend",
@@ -24,6 +24,10 @@
           "host": "Host or IP address",
           "port": "Port"
         }
+      },
+      "verify_unused": {
+        "title": "Check the fingerprint",
+        "description": "**{name}** at {host}, version {version}, proved it knows the pairing code, and the fingerprint of the certificate that served this connection is:\n\n**{fingerprint}**\n\nCompare it against the DoLu admin panel before going on.\n\n⚠️ **This backend will not use what it is given.** It has `HA_BASE_URL` and `HA_LONG_LIVED_TOKEN` in its `.env` file, and those take precedence over paired credentials: they will be stored, but it will keep talking to the Home Assistant from the `.env`. This is on purpose, so that a pairing cannot disconnect a backend that was set up by hand.\n\nIf you continue, the **DoLu** user and its token will still be created. To make them count, remove those two lines from the backend's `.env` and restart it."
       }
     },
     "error": {
@@ -51,7 +55,12 @@
       "code_locked": "Pairing did not finish: the code was blocked after five failed attempts. Generate a new one in the DoLu admin panel and start again.",
       "no_active_code": "Pairing did not finish: the backend no longer has an active code. Generate a new one in the DoLu admin panel and start again.",
       "too_many_requests": "Too many attempts in a row. Wait a minute and start again.",
-      "unexpected_response": "The backend answered something unexpected."
+      "unexpected_response": "The backend answered something unexpected.",
+      "onboarding_incomplete": "Finish Home Assistant's initial setup first. Pairing now would leave the user DoLu creates as the owner of this installation, and that is not easy to undo.",
+      "no_ha_url": "Home Assistant has no address to give the backend. Set one under Settings → System → Network (local address) and try again.",
+      "user_failed": "The DoLu user could not be created in Home Assistant. Check the log for why; nothing was delivered to the backend.",
+      "token_failed": "The DoLu token could not be created. Nothing was delivered to the backend, and anything created along the way was undone.",
+      "token_refused": "Home Assistant refused to create the DoLu token. That usually means an earlier one is still there and could not be removed: delete the DoLu user under Settings → People and pair again."
     }
   }
 }

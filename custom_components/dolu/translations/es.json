@@ -15,7 +15,7 @@
       },
       "verify": {
         "title": "Cotejar la huella",
-        "description": "**{name}**, en {host}, versión {version}, demostró que conoce el código.\n\nHuella del certificado que sirvió de verdad esta conexión:\n\n**{fingerprint}**\n\nCompárala con la que muestra el panel de DoLu. Tienen que coincidir carácter por carácter. Si no coinciden, cancela: algo en la red está suplantando a tu backend."
+        "description": "**{name}**, en {host}, versión {version}, demostró que conoce el código.\n\nHuella del certificado que sirvió de verdad esta conexión:\n\n**{fingerprint}**\n\nCompárala con la que muestra el panel de DoLu. Tienen que coincidir carácter por carácter. Si no coinciden, cancela: algo en la red está suplantando a tu backend.\n\nAl confirmar, Home Assistant creará un usuario administrador llamado **DoLu**, solo de red local y sin contraseña para iniciar sesión, y le entregará al backend un token suyo. Podrás revocarlo cuando quieras borrando ese usuario en Ajustes → Personas."
       },
       "user": {
         "title": "Añadir un backend de DoLu",
@@ -24,6 +24,10 @@
           "host": "Host o dirección IP",
           "port": "Puerto"
         }
+      },
+      "verify_unused": {
+        "title": "Cotejar la huella",
+        "description": "**{name}**, en {host}, versión {version}, demostró que conoce el código, y la huella del certificado que sirvió esta conexión es:\n\n**{fingerprint}**\n\nCompárala con la del panel de DoLu antes de seguir.\n\n⚠️ **Este backend no va a usar lo que se le entregue.** Tiene `HA_BASE_URL` y `HA_LONG_LIVED_TOKEN` en su archivo `.env`, y esas mandan sobre las credenciales de un emparejamiento: se guardarán, pero seguirá hablando con el Home Assistant del `.env`. Es a propósito, para que un emparejamiento no pueda desconectar un backend configurado a mano.\n\nSi sigues, se creará igualmente el usuario **DoLu** y su token. Para que se usen, quita esas dos líneas del `.env` del backend y reinícialo."
       }
     },
     "error": {
@@ -51,7 +55,12 @@
       "code_locked": "El emparejamiento no llegó a terminar: el código se bloqueó tras cinco intentos fallidos. Genera uno nuevo en el panel de DoLu y empieza otra vez.",
       "no_active_code": "El emparejamiento no llegó a terminar: el backend ya no tiene ningún código activo. Genera uno nuevo en el panel de DoLu y empieza otra vez.",
       "too_many_requests": "Demasiados intentos seguidos. Espera un minuto y empieza otra vez.",
-      "unexpected_response": "El backend contestó algo inesperado."
+      "unexpected_response": "El backend contestó algo inesperado.",
+      "onboarding_incomplete": "Termina primero la configuración inicial de Home Assistant. Emparejando ahora, el usuario que DoLu crearía quedaría como propietario de esta instalación, y eso no tiene arreglo fácil.",
+      "no_ha_url": "Home Assistant no tiene ninguna dirección que darle al backend. Configura una en Ajustes → Sistema → Red (dirección local) y vuelve a intentarlo.",
+      "user_failed": "No se pudo crear el usuario de DoLu en Home Assistant. Mira el registro para ver por qué; no se entregó nada al backend.",
+      "token_failed": "No se pudo crear el token de DoLu. No se entregó nada al backend, y lo que se hubiera creado se deshizo.",
+      "token_refused": "Home Assistant se negó a crear el token de DoLu. Suele significar que ya existe uno anterior que no se pudo quitar: borra el usuario DoLu en Ajustes → Personas y empareja otra vez."
     }
   }
 }

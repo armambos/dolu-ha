@@ -25,3 +25,11 @@ SHORT_FINGERPRINT_GROUPS = 10
 # MDNS_SERVICE_NAME, la entrada sigue diciendo con qué instalación se emparejó.
 CONF_BACKEND_NAME = "backend_name"
 CONF_PAIRED_AT = "paired_at"
+
+# Lo que la ronda 4 guarda en la entrada, y que la ronda 5 necesita para deshacer
+# exactamente lo que se creó. El usuario se busca SIEMPRE por este id y nunca por nombre:
+# el dueño de la casa puede renombrarlo desde Ajustes → Personas.
+CONF_USER_ID = "user_id"
+CONF_REFRESH_TOKEN_ID = "refresh_token_id"
+# El backend guardó las credenciales pero no las usa porque su .env manda (sección 3.5).
+CONF_CREDENTIALS_UNUSED = "credentials_unused"

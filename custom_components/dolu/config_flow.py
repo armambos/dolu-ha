@@ -26,6 +26,7 @@ from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.components.onboarding import async_is_onboarded
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -36,15 +37,24 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_BACKEND_NAME,
     CONF_BACKEND_VERSION,
+    CONF_CREDENTIALS_UNUSED,
     CONF_FINGERPRINT,
     CONF_INSTALLATION_ID,
     CONF_PAIRED_AT,
+    CONF_REFRESH_TOKEN_ID,
+    CONF_USER_ID,
     DOMAIN,
     SHORT_FINGERPRINT_GROUPS,
     TXT_FINGERPRINT,
     TXT_INSTALLATION_ID,
     TXT_VERSION,
     ZEROCONF_TYPE,
+)
+from .ha_user import (
+    HaUserError,
+    async_ensure_user,
+    async_issue_token,
+    async_revoke_token,
 )
 from .pairing import (
     BackendHello,
@@ -108,6 +118,20 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         self._announced_name: str = "DoLu"
         self._client: PairingClient | None = None
         self._hello: BackendHello | None = None
+        # El usuario de DoLu de un emparejamiento anterior, si lo hay. Al re-emparejar se
+        # reutiliza en vez de crear un segundo administrador. Se busca por id y nunca por
+        # nombre, que el dueño lo puede haber renombrado.
+        self._reauth_user_id: str | None = None
+
+    def _onboarding_pending(self) -> bool:
+        """¿Home Assistant todavía no ha terminado su configuración inicial?
+
+        Emparejar en ese estado tiene una consecuencia que no se deshace fácil:
+        `async_create_user` marca como **propietario** al primer usuario si todavía no hay
+        ninguno, así que el dueño de la casa acabaría siendo "DoLu". Por eso se impide en vez
+        de solo avisar.
+        """
+        return not async_is_onboarded(self.hass)
 
     # ------------------------------------------------------------------
     # Cómo se llega hasta aquí: descubrimiento o alta manual
@@ -170,6 +194,8 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Se encontró un backend. Antes de emparejar, hay que ir a por el código."""
         if user_input is not None:
+            if self._onboarding_pending():
+                return self.async_abort(reason="onboarding_incomplete")
             return await self.async_step_code()
 
         return self.async_show_form(
@@ -193,6 +219,9 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         (TOFU) y todo el peso recae sobre las otras dos barreras: el código y el cotejo a ojo
         de la pantalla siguiente.
         """
+        if self._onboarding_pending():
+            return self.async_abort(reason="onboarding_incomplete")
+
         # Hay un backend por casa, y estas dos comprobaciones son las que lo sostienen.
         # No hay `single_config_entry` en el manifest, y no es un olvido: está quitado a
         # propósito, porque hacía más daño que bien.
@@ -304,39 +333,30 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_verify(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Cotejar la huella del certificado que sirvió la conexión, y entregar.
+        """Cotejar la huella del certificado que sirvió la conexión, y entregar el token.
 
         Esta pantalla es la barrera 2, y es la única que no puede automatizarse: si alguien
         llegara a conocer el código, todo lo demás le saldría bien y solo el cotejo a ojo lo
         distinguiría del backend real. Por eso los diez pares que se muestran son exactamente
         los mismos que muestra el panel de DoLu, carácter por carácter.
+
+        Y es también el último punto en el que no se ha creado nada todavía. Lo que viene
+        después —un usuario administrador y un token de diez años— se hace solo cuando la
+        persona ha dicho que las huellas coinciden.
         """
         if self._client is None or self._hello is None:
             return self.async_abort(reason="session_lost")
 
         if user_input is not None:
-            try:
-                await self._client.complete(self._test_payload())
-            except PairingError as err:
-                # Aquí ya no se reintenta: la conversación se consumió y el código es de un
-                # solo uso. Se empieza de nuevo, con un código nuevo.
-                return self.async_abort(reason=err.reason)
+            return await self._async_deliver()
 
-            return self.async_create_entry(
-                title=self._hello.name or "DoLu",
-                data={
-                    CONF_HOST: self._host,
-                    CONF_PORT: self._port,
-                    CONF_FINGERPRINT: self._client.fingerprint,
-                    CONF_INSTALLATION_ID: self._installation_id,
-                    CONF_BACKEND_VERSION: self._hello.version,
-                    CONF_BACKEND_NAME: self._hello.name,
-                    CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
-                },
-            )
+        # Si el backend ya avisó de que su .env manda, se dice AQUÍ, antes de crear nada, y
+        # con su propio texto. Enterarse después de haber creado un administrador y un token
+        # que no se van a usar es peor que no enterarse.
+        step_id = "verify_unused" if self._hello.env_precedence else "verify"
 
         return self.async_show_form(
-            step_id="verify",
+            step_id=step_id,
             description_placeholders={
                 "name": self._hello.name,
                 "host": f"{self._host}:{self._port}",
@@ -345,24 +365,94 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
-    def _test_payload(self) -> dict[str, Any]:
-        """Lo que viaja en `complete` en esta ronda: una prueba, no un token.
+    async def async_step_verify_unused(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """El mismo cotejo, cuando el backend ya dijo que no va a usar lo que se le entregue."""
+        return await self.async_step_verify(user_input)
 
-        Lleva la URL de Home Assistant porque en la ronda 4 irá ahí de verdad, y conviene que
-        el camino ya esté ejercitado —incluido el caso de que no haya ninguna URL utilizable,
-        que es un fallo real y no una rareza.
+    async def _async_deliver(self) -> ConfigFlowResult:
+        """Crear el usuario y el token, entregarlos, y dejar la entrada.
+
+        El orden importa por lo que hay que deshacer si algo falla por el camino: primero la
+        URL (que puede no existir y no cuesta nada comprobar), después el usuario, después el
+        token, y solo al final la entrega. Si la entrega falla, se revoca el token y —si el
+        usuario se creó en este mismo intento— se borra también: un administrador huérfano en
+        la casa de alguien es exactamente lo que este proyecto no puede permitirse dejar.
         """
+        # La dirección por la que el backend alcanzará a Home Assistant. Que no haya ninguna
+        # utilizable es un fallo real y no una rareza: una instancia sin URL interna ni
+        # externa configurada existe.
         try:
             ha_url = get_url(self.hass, allow_internal=True, allow_ip=True)
         except NoURLAvailableError:
-            ha_url = None
+            _LOGGER.error("Home Assistant no tiene ninguna URL utilizable que darle al backend")
+            return self.async_abort(reason="no_ha_url")
 
-        return {
-            "round": 3,
-            "test": True,
-            "ha_url": ha_url,
-            "note": (
-                "Payload de prueba de la ronda 3. En la ronda 4, aquí viajan la URL de Home "
-                "Assistant, el token de larga duración y el id del usuario creado."
-            ),
-        }
+        # Se vuelve a comprobar aquí, y no solo al entrar al flujo, porque entre una cosa y
+        # otra la persona pudo terminar (o no) el onboarding en otra pestaña. Es barato.
+        if self._onboarding_pending():
+            return self.async_abort(reason="onboarding_incomplete")
+
+        previous_user_id = self._reauth_user_id
+        try:
+            user = await async_ensure_user(self.hass, previous_user_id)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("No se pudo crear ni recuperar el usuario de DoLu")
+            return self.async_abort(reason="user_failed")
+
+        created_user = user.id != previous_user_id
+
+        try:
+            token, refresh_token_id = await async_issue_token(self.hass, user)
+        except HaUserError as err:
+            if created_user:
+                await self.hass.auth.async_remove_user(user)
+            return self.async_abort(reason=err.reason)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("No se pudo crear el token de larga duración de DoLu")
+            if created_user:
+                await self.hass.auth.async_remove_user(user)
+            return self.async_abort(reason="token_failed")
+
+        try:
+            result = await self._client.complete(
+                {
+                    "ha_url": ha_url,
+                    "token": token,
+                    "user_id": user.id,
+                    "refresh_token_id": refresh_token_id,
+                }
+            )
+        except PairingError as err:
+            # No llegó a entregarse: lo que se acaba de crear no lo va a usar nadie, así que
+            # no se deja atrás. La conversación se consumió, se empieza de nuevo.
+            async_revoke_token(self.hass, refresh_token_id)
+            if created_user:
+                await self.hass.auth.async_remove_user(user)
+            return self.async_abort(reason=err.reason)
+
+        # "Nunca en silencio" (sección 3.5): el backend dice si va a usar lo que recibió.
+        unused = bool(result.get("credentials_stored_unused"))
+        if unused:
+            _LOGGER.warning(
+                "El backend guardó las credenciales pero NO las va a usar: su archivo .env "
+                "tiene HA_BASE_URL y HA_LONG_LIVED_TOKEN, y esas mandan"
+            )
+
+        return self.async_create_entry(
+            title=self._hello.name or "DoLu",
+            data={
+                CONF_HOST: self._host,
+                CONF_PORT: self._port,
+                CONF_FINGERPRINT: self._client.fingerprint,
+                CONF_INSTALLATION_ID: self._installation_id,
+                CONF_BACKEND_VERSION: self._hello.version,
+                CONF_BACKEND_NAME: self._hello.name,
+                CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
+                # Sin estos dos, la ronda 5 no puede deshacer lo que la 4 hizo.
+                CONF_USER_ID: user.id,
+                CONF_REFRESH_TOKEN_ID: refresh_token_id,
+                CONF_CREDENTIALS_UNUSED: unused,
+            },
+        )

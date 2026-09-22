@@ -98,6 +98,10 @@ class BackendHello:
     installation_id: str
     version: str
     fingerprint: str
+    # El backend tiene HA_BASE_URL y HA_LONG_LIVED_TOKEN en su .env, así que esas mandan y
+    # lo que se le entregue se guardará sin usarse. Llega en el hello, o sea ANTES de que
+    # aquí se cree ningún usuario ni ningún token.
+    env_precedence: bool = False
 
 
 def normalize_code(value: str) -> str:
@@ -339,6 +343,7 @@ class PairingClient:
             installation_id=str(body.get("installation_id") or ""),
             version=str(body.get("version") or ""),
             fingerprint=served,
+            env_precedence=bool(body.get("env_precedence")),
         )
         return self._hello
 
