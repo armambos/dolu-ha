@@ -28,10 +28,10 @@
     },
     "error": {
       "invalid_code": "Ese código no es el que este backend está esperando — o quien contesta al otro lado no es tu backend. No se envió nada. Comprueba el código que muestra el panel de DoLu, o genera uno nuevo. Esto no gasta ninguno de los cinco intentos del código.",
-      "code_expired": "El código caducó. Genera uno nuevo en el panel de DoLu y tecléalo aquí.",
-      "code_used": "Ese código ya se usó. Los códigos de emparejamiento valen una sola vez: genera otro.",
-      "code_locked": "El código está bloqueado tras cinco intentos fallidos. Genera uno nuevo en el panel de DoLu.",
-      "no_active_code": "El backend no tiene ningún código de emparejamiento activo. Genera uno en el panel de DoLu, en Home Assistant → Emparejamiento.",
+      "code_expired": "El backend no tiene ningún código activo: el último caducó. Genera uno nuevo en el panel de DoLu y tecléalo aquí.",
+      "code_used": "El backend no tiene ningún código activo: el último ya se usó, y los códigos valen una sola vez. Genera uno nuevo en el panel de DoLu y tecléalo aquí.",
+      "code_locked": "El backend no tiene ningún código activo: el último se bloqueó tras cinco intentos fallidos. Genera uno nuevo en el panel de DoLu y tecléalo aquí.",
+      "no_active_code": "El backend no tiene ningún código de emparejamiento activo. Genera uno en el panel de DoLu, en Home Assistant → Emparejamiento, y tecléalo aquí.",
       "cannot_connect": "No se pudo llegar al backend por HTTPS. Comprueba que esté funcionando y que la dirección y el puerto sean los correctos.",
       "too_many_requests": "Demasiados intentos seguidos. Espera un minuto y vuelve a probar.",
       "unexpected_response": "El backend contestó algo inesperado. Comprueba que su versión se corresponda con la de esta integración."
@@ -46,10 +46,10 @@
       "invalid_proof": "El backend rechazó la prueba de este Home Assistant. Genera un código nuevo y empieza otra vez.",
       "session_lost": "La conversación del emparejamiento caducó. Genera un código nuevo en el panel de DoLu y empieza otra vez.",
       "cannot_connect": "No se pudo llegar al backend por HTTPS.",
-      "code_expired": "El código caducó antes de terminar el emparejamiento. Genera uno nuevo y empieza otra vez.",
-      "code_used": "Ese código ya se usó. Genera uno nuevo y empieza otra vez.",
-      "code_locked": "El código está bloqueado tras cinco intentos fallidos. Genera uno nuevo.",
-      "no_active_code": "El backend ya no tiene ningún código de emparejamiento activo.",
+      "code_expired": "El emparejamiento no llegó a terminar: el código caducó antes. Genera uno nuevo en el panel de DoLu y empieza otra vez.",
+      "code_used": "El emparejamiento no llegó a terminar: el código se gastó por el camino. Genera uno nuevo en el panel de DoLu y empieza otra vez.",
+      "code_locked": "El emparejamiento no llegó a terminar: el código se bloqueó tras cinco intentos fallidos. Genera uno nuevo en el panel de DoLu y empieza otra vez.",
+      "no_active_code": "El emparejamiento no llegó a terminar: el backend ya no tiene ningún código activo. Genera uno nuevo en el panel de DoLu y empieza otra vez.",
       "too_many_requests": "Demasiados intentos seguidos. Espera un minuto y empieza otra vez.",
       "unexpected_response": "El backend contestó algo inesperado."
     }

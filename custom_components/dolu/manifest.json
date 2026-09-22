@@ -9,6 +9,6 @@
   "issue_tracker": "https://github.com/armambos/dolu-ha/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "zeroconf": ["_dolu._tcp.local."]
 }

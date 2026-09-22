@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.2.1 — 2026-09-22
+
+- Los cuatro estados en los que el backend no tiene código activo —no hay ninguno, el
+  último se usó, caducó, o se bloqueó— dejan de hablar del código que la persona acaba de
+  teclear y hablan del estado del backend, que es lo que pasa de verdad. Antes, teclear un
+  código equivocado después de un emparejamiento correcto contestaba "ese código ya se usó",
+  que es cierto sobre el backend y falso sobre lo que la persona hizo. Los cuatro dicen
+  ahora el estado y la acción: no hay código activo, genera uno.
+
 ## 0.2.0 — 2026-09-22
 
 Ronda 3: el canal de emparejamiento, del lado de Home Assistant.

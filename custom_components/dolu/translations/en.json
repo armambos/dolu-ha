@@ -28,10 +28,10 @@
     },
     "error": {
       "invalid_code": "That code is not the one this backend is waiting for — or whatever answered is not your backend. Nothing was sent. Check the code shown in the DoLu panel, or generate a new one. This does not use up any of the code's five attempts.",
-      "code_expired": "The code expired. Generate a new one in the DoLu admin panel and type it here.",
-      "code_used": "That code was already used. Pairing codes work once: generate a new one.",
-      "code_locked": "The code is blocked after five failed attempts. Generate a new one in the DoLu admin panel.",
-      "no_active_code": "The backend has no active pairing code. Generate one in the DoLu admin panel, under Home Assistant → Pairing.",
+      "code_expired": "The backend has no active code: the last one expired. Generate a new one in the DoLu admin panel and type it here.",
+      "code_used": "The backend has no active code: the last one was already used, and codes work once. Generate a new one in the DoLu admin panel and type it here.",
+      "code_locked": "The backend has no active code: the last one was blocked after five failed attempts. Generate a new one in the DoLu admin panel and type it here.",
+      "no_active_code": "The backend has no active pairing code. Generate one in the DoLu admin panel, under Home Assistant → Pairing, and type it here.",
       "cannot_connect": "Could not reach the backend over HTTPS. Check that it is running and that the address and port are right.",
       "too_many_requests": "Too many attempts in a row. Wait a minute and try again.",
       "unexpected_response": "The backend answered something unexpected. Check that its version matches this integration."
@@ -46,10 +46,10 @@
       "invalid_proof": "The backend rejected this Home Assistant's proof. Generate a new code and start again.",
       "session_lost": "The pairing conversation expired. Generate a new code in the DoLu admin panel and start again.",
       "cannot_connect": "Could not reach the backend over HTTPS.",
-      "code_expired": "The code expired before pairing finished. Generate a new one and start again.",
-      "code_used": "That code was already used. Generate a new one and start again.",
-      "code_locked": "The code is blocked after five failed attempts. Generate a new one.",
-      "no_active_code": "The backend has no active pairing code any more.",
+      "code_expired": "Pairing did not finish: the code expired first. Generate a new one in the DoLu admin panel and start again.",
+      "code_used": "Pairing did not finish: the code was spent along the way. Generate a new one in the DoLu admin panel and start again.",
+      "code_locked": "Pairing did not finish: the code was blocked after five failed attempts. Generate a new one in the DoLu admin panel and start again.",
+      "no_active_code": "Pairing did not finish: the backend no longer has an active code. Generate a new one in the DoLu admin panel and start again.",
       "too_many_requests": "Too many attempts in a row. Wait a minute and start again.",
       "unexpected_response": "The backend answered something unexpected."
     }
