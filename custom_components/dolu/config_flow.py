@@ -88,6 +88,16 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
             updates={CONF_HOST: discovery_info.host, CONF_PORT: discovery_info.port}
         )
 
+        # Y si ya hay un backend configurado, este anuncio no se enseña.
+        #
+        # La comprobación de arriba no basta: solo reconoce al backend que YA está dado de
+        # alta, comparando identificadores de instalación, y una entrada creada por el alta
+        # manual todavía no tiene ninguno (la aprende en la ronda 3, hablando con el
+        # backend). Sin esta segunda comprobación, después de un alta manual el backend
+        # seguía apareciendo en "Descubierto" como si no estuviera configurado.
+        if self._async_current_entries(include_ignore=False):
+            return self.async_abort(reason="single_instance_allowed")
+
         self._host = discovery_info.host
         self._port = discovery_info.port or DEFAULT_PORT
         self._fingerprint = fingerprint
@@ -126,6 +136,23 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         hablará con el backend para traerse su identidad y su huella, igual que hace el
         descubrimiento.
         """
+        # Hay un backend por casa, y esta comprobación es la que de verdad hace falta.
+        #
+        # single_config_entry en el manifest NO cubre este camino: Home Assistant excluye a
+        # propósito las entradas ignoradas cuando el flujo lo inicia una persona
+        # (config_entries.py, async_init: `async_has_entries(handler, include_ignore=False)`
+        # y `... and source != SOURCE_USER`). Con el backend marcado como ignorado, el alta
+        # manual pasaba de largo y se creaban dos entradas del mismo backend. Comprobado
+        # contra una instancia real: sin esto salía el formulario; con esto, no.
+        if self._async_current_entries(include_ignore=False):
+            return self.async_abort(reason="single_instance_allowed")
+
+        # Solo queda el caso de la entrada ignorada, y merece su propio mensaje: decirle a
+        # alguien que "ya hay un backend configurado" cuando lo que hay es un descubrimiento
+        # que marcó como ignorado no le dice dónde mirar.
+        if self._async_current_entries(include_ignore=True):
+            return self.async_abort(reason="ignored_entry")
+
         errors: dict[str, str] = {}
 
         if user_input is not None:

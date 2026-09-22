@@ -18,7 +18,8 @@
     "abort": {
       "already_configured": "This DoLu backend is already set up.",
       "incomplete_discovery": "The announcement did not carry the backend identity. Check that the backend is running a version that announces itself (0.3.30 or newer).",
-      "single_instance_allowed": "Only one DoLu backend can be set up: there is one per home."
+      "single_instance_allowed": "Only one DoLu backend can be set up: there is one per home.",
+      "ignored_entry": "This DoLu backend is set as ignored in Home Assistant. Stop ignoring it (Settings → Devices & services → ⋮ → Show ignored integrations) before adding it by hand."
     }
   }
 }

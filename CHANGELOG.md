@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## 0.1.2 — 2026-09-22
+
+- El alta manual ya no permite un segundo backend cuando el descubrimiento está marcado
+  como **ignorado**. `single_config_entry` no cubría ese caso: Home Assistant excluye a
+  propósito las entradas ignoradas cuando el flujo lo inicia una persona, así que con el
+  backend ignorado el formulario salía igual y se creaban dos entradas del mismo backend.
+  Ahora el flujo lo comprueba por su cuenta, y ese caso tiene mensaje propio, que dice dónde
+  quitar la marca de ignorado en vez de soltar un "ya está configurado".
+- El descubrimiento tampoco vuelve a ofrecerse cuando ya hay una entrada creada a mano, que
+  todavía no tiene identificador de instalación con el que reconocerse.
+
 ## 0.1.1 — 2026-09-22
 
 - El icono de marca pasa a ser el de la app: cuatro PNG con fondo transparente, con variante

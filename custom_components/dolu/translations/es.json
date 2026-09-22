@@ -18,7 +18,8 @@
     "abort": {
       "already_configured": "Este backend de DoLu ya está configurado.",
       "incomplete_discovery": "El anuncio no traía la identidad del backend. Comprueba que el backend tenga una versión que se anuncia (0.3.30 o posterior).",
-      "single_instance_allowed": "Solo se puede configurar un backend de DoLu: hay uno por casa."
+      "single_instance_allowed": "Solo se puede configurar un backend de DoLu: hay uno por casa.",
+      "ignored_entry": "Este backend de DoLu está marcado como ignorado en Home Assistant. Quita esa marca (Ajustes → Dispositivos y servicios → ⋮ → Mostrar integraciones ignoradas) antes de añadirlo a mano."
     }
   }
 }
