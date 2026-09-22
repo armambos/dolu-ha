@@ -32,11 +32,25 @@ from .const import (
     TXT_FINGERPRINT,
     TXT_INSTALLATION_ID,
     TXT_VERSION,
+    ZEROCONF_TYPE,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_PORT = 3000
+
+
+def announced_name(service_name: str) -> str:
+    """El nombre con el que el backend se anuncia, para la tarjeta de descubrimiento.
+
+    Sale del nombre de instancia del servicio mDNS ("DoLu._dolu._tcp.local."), que es lo que
+    el backend pone en MDNS_SERVICE_NAME. Avahi escapa los espacios como "\\032".
+
+    Es solo una etiqueta: el nombre en el que se puede confiar llega por la conexión ya
+    fijada por huella cuando se empareja, no por un anuncio que escribe cualquiera.
+    """
+    etiqueta = service_name.split(f".{ZEROCONF_TYPE}")[0].replace("\\032", " ").strip()
+    return etiqueta or "DoLu"
 
 
 def short_fingerprint(fingerprint: str) -> str:
@@ -80,8 +94,10 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         self._installation_id = installation_id
         self._backend_version = properties.get(TXT_VERSION, "")
 
-        name = properties.get("name") or "DoLu"
-        self.context["title_placeholders"] = {"name": name, "host": self._host}
+        self.context["title_placeholders"] = {
+            "name": announced_name(discovery_info.name),
+            "host": self._host,
+        }
 
         return await self.async_step_confirm()
 

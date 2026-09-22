@@ -70,12 +70,17 @@ Para probar contra un Home Assistant de usar y tirar, copiar la carpeta de la in
 reiniciar el contenedor:
 
 ```bash
-rsync -av --delete custom_components/dolu/ ha-pruebas:ha-pruebas/custom_components/dolu/
+rsync -av --delete --exclude __pycache__ custom_components/dolu/ ha-pruebas:ha-pruebas/custom_components/dolu/
 ssh ha-pruebas docker restart ha-pruebas
 ```
 
-El `--delete` apunta solo a la carpeta de la integración: contra el directorio de
-configuración entero, borraría Home Assistant.
+Dos detalles que muerden:
+
+- El `--delete` apunta solo a la carpeta de la integración. Contra el directorio de
+  configuración entero, borraría Home Assistant.
+- El `--exclude __pycache__` no es cosmético: Home Assistant escribe ahí desde dentro del
+  contenedor, donde corre como root, y sin excluirlo el `--delete` falla al intentar borrar
+  archivos que no son suyos.
 
 Cada cambio necesita reiniciar Home Assistant —los módulos de una integración se importan
 una sola vez—, pero el nivel de registro sí se puede subir en caliente, desde Herramientas
