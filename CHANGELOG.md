@@ -1,5 +1,18 @@
 # Historial de cambios
 
+## 0.2.2 — 2026-09-22
+
+- **Fuera `single_config_entry` del manifest.** Con esa clave, la interfaz de Home Assistant
+  se negaba a abrir el flujo y enseñaba su propio diálogo —"DoLu supports only one
+  configuration"—, contando **cualquier** entrada, ignoradas incluidas. Con el
+  descubrimiento marcado como ignorado eso dejaba a la persona bloqueada con un mensaje que
+  no menciona la marca de ignorado, y el mensaje que sí dice dónde quitarla no llegaba a
+  verse nunca. Sin la clave, el flujo arranca y cada caso dice lo suyo: "solo un backend por
+  casa" cuando ya hay uno, y el que indica *Ajustes → Dispositivos y servicios → ⋮ →
+  Mostrar integraciones ignoradas* cuando lo que hay es un descubrimiento ignorado.
+  La entrada única la siguen garantizando las comprobaciones propias del flujo y, en el
+  descubrimiento, `_abort_if_unique_id_configured`, que sí cuenta las ignoradas.
+
 ## 0.2.1 — 2026-09-22
 
 - Los cuatro estados en los que el backend no tiene código activo —no hay ninguno, el

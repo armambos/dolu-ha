@@ -193,14 +193,22 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         (TOFU) y todo el peso recae sobre las otras dos barreras: el código y el cotejo a ojo
         de la pantalla siguiente.
         """
-        # Hay un backend por casa, y esta comprobación es la que de verdad hace falta.
+        # Hay un backend por casa, y estas dos comprobaciones son las que lo sostienen.
+        # No hay `single_config_entry` en el manifest, y no es un olvido: está quitado a
+        # propósito, porque hacía más daño que bien.
         #
-        # single_config_entry en el manifest NO cubre este camino: Home Assistant excluye a
-        # propósito las entradas ignoradas cuando el flujo lo inicia una persona
-        # (config_entries.py, async_init: `async_has_entries(handler, include_ignore=False)`
-        # y `... and source != SOURCE_USER`). Con el backend marcado como ignorado, el alta
-        # manual pasaba de largo y se creaban dos entradas del mismo backend. Comprobado
-        # contra una instancia real: sin esto salía el formulario; con esto, no.
+        # Con esa clave puesta, la INTERFAZ de Home Assistant se niega antes de arrancar
+        # ningún flujo —enseña su propio diálogo, "{integración} supports only one
+        # configuration"— y cuenta cualquier entrada, ignoradas incluidas
+        # (`single_config_entry` en el panel de integraciones: si `getConfigEntries({domain})`
+        # devuelve algo, diálogo y fuera). Resultado: con el descubrimiento marcado como
+        # ignorado, la persona quedaba bloqueada con un mensaje que no menciona la marca de
+        # ignorado, y el mensaje de aquí abajo —el único que dice dónde quitarla— no llegaba
+        # a verse nunca. Comprobado en la interfaz.
+        #
+        # Sin la clave, el flujo arranca y cada caso dice lo suyo. Lo que la clave aportaba
+        # del lado del servidor ya lo cubren estas comprobaciones y, en el descubrimiento,
+        # `_abort_if_unique_id_configured`, que sí tiene en cuenta las entradas ignoradas.
         if self._async_current_entries(include_ignore=False):
             return self.async_abort(reason="single_instance_allowed")
 
