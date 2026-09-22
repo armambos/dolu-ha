@@ -1,0 +1,24 @@
+{
+  "config": {
+    "flow_title": "{name} ({host})",
+    "step": {
+      "confirm": {
+        "title": "Backend de DoLu",
+        "description": "Backend encontrado en {host}, versión {version}.\n\nHuella anunciada del certificado:\n\n**{fingerprint}**\n\nEsta huella viene del anuncio de la red, y un anuncio lo puede escribir cualquiera: está aquí para reconocer el backend, no como prueba. Cuando se añada el emparejamiento, la huella que se muestre será la del certificado que sirvió de verdad la conexión, y compararla con la del panel de DoLu pasará a significar algo."
+      },
+      "user": {
+        "title": "Añadir un backend de DoLu",
+        "description": "Para cuando el backend no aparece solo, que es lo que pasa si Home Assistant y el backend están en redes distintas.",
+        "data": {
+          "host": "Host o dirección IP",
+          "port": "Puerto"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Este backend de DoLu ya está configurado.",
+      "incomplete_discovery": "El anuncio no traía la identidad del backend. Comprueba que el backend tenga una versión que se anuncia (0.3.30 o posterior).",
+      "single_instance_allowed": "Solo se puede configurar un backend de DoLu: hay uno por casa."
+    }
+  }
+}

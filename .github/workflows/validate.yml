@@ -1,0 +1,34 @@
+name: Validación
+
+# Las dos validaciones que HACS exige para entrar en su tienda por defecto. No hacen falta
+# para instalar la integración como repositorio personalizado, pero se montan desde el
+# principio porque hassfest atrapa errores del manifest.json que, sin él, solo se descubren
+# reiniciando Home Assistant.
+#
+# Nota: mientras el repositorio siga siendo privado, la acción de HACS falla en sus
+# comprobaciones sobre el repositorio (exige que sea público). Se arregla solo al publicarlo,
+# que es la ronda 6.
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+jobs:
+  hassfest:
+    name: hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration

@@ -1,0 +1,24 @@
+{
+  "config": {
+    "flow_title": "{name} ({host})",
+    "step": {
+      "confirm": {
+        "title": "DoLu backend",
+        "description": "Backend found at {host}, version {version}.\n\nAnnounced certificate fingerprint:\n\n**{fingerprint}**\n\nThis fingerprint comes from the network announcement, and anyone on the network can write one of those: it is here so you can recognise the backend, not as proof. Once pairing is added, the fingerprint shown will be the one of the certificate that actually served the connection, and comparing it against the DoLu admin panel will mean something."
+      },
+      "user": {
+        "title": "Add a DoLu backend",
+        "description": "Use this when the backend is not discovered on its own, which is what happens when Home Assistant and the backend are on different networks.",
+        "data": {
+          "host": "Host or IP address",
+          "port": "Port"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This DoLu backend is already set up.",
+      "incomplete_discovery": "The announcement did not carry the backend identity. Check that the backend is running a version that announces itself (0.3.30 or newer).",
+      "single_instance_allowed": "Only one DoLu backend can be set up: there is one per home."
+    }
+  }
+}
