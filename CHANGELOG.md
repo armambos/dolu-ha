@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## 0.4.1 — 2026-09-22
+
+- El título de la tarjeta y del diálogo de reautenticación salía como un error de formato
+  (`[formatjs Error: MISSING_VALUE]`) en vez de como un nombre. `flow_title` es
+  `"{name} ({host})"` y esos dos valores salen de `title_placeholders`, que el
+  descubrimiento rellena y la reautenticación no rellenaba. Es un fallo que no se ve desde
+  el servidor —la clave existe y se sirve bien—: solo aparece en la pantalla y en el log
+  del navegador.
+
 ## 0.4.0 — 2026-09-22
 
 Ronda 5: el ciclo de vida. Lo que faltaba era deshacer.

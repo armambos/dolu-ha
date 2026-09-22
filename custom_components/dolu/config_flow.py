@@ -299,6 +299,21 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         # Lo que evita crear un segundo administrador: se reutiliza el usuario de antes.
         self._reauth_user_id = entry.data.get(CONF_USER_ID)
 
+        # Sin esto, el título de la tarjeta y del diálogo salen como un error de formato en
+        # vez de como un nombre. `flow_title` es "{name} ({host})" y esos dos valores salen
+        # de aquí; el descubrimiento los pone y la reautenticación no los ponía, así que el
+        # frontend se quedaba sin ellos y fallaba al formatear:
+        #
+        #   [formatjs Error: MISSING_VALUE] The intl string context variable "host" was not
+        #   provided to the string "{name} ({host})"
+        #
+        # Es un fallo silencioso del lado del servidor —la clave existe y se sirve bien— y
+        # solo se ve en la pantalla y en el log del navegador.
+        self.context["title_placeholders"] = {
+            "name": self._announced_name,
+            "host": self._host or "",
+        }
+
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
