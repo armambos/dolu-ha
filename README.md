@@ -1,159 +1,158 @@
-# DoLu para Home Assistant
+# DoLu for Home Assistant
 
-Integración personalizada que conecta Home Assistant con el backend de DoLu.
+*[Leer en español](README.es.md)*
 
-Su único cometido es quitar el último paso manual de la instalación: crear a mano un token
-de acceso de larga duración en Home Assistant y copiarlo al `.env` del backend. En su lugar,
-el backend se anuncia en la red, Home Assistant lo descubre, y un código de un solo uso los
-empareja.
+A custom integration that connects Home Assistant to the DoLu backend.
 
-Los paneles siguen llegando a Home Assistant por MQTT, igual que siempre. Esta integración
-no los toca, y **no crea entidades ni dispositivos**: el backend ya publica por MQTT el
-dispositivo "DoLu backend" con su sensor de enlace, y dos dispositivos con ese nombre solo
-servirían para no saber cuál mirar.
+It exists to remove the last manual step of the installation: creating a long-lived access
+token by hand in Home Assistant and copying it into the backend's `.env`. Instead, the
+backend announces itself on the network, Home Assistant discovers it, and a single-use code
+pairs the two.
 
-## Qué hace, en una línea
+Panels still reach Home Assistant over MQTT, exactly as before. This integration doesn't
+touch them, and it **creates no entities and no devices**: the backend already publishes the
+"DoLu backend" device with its link sensor over MQTT, and a second device by the same name
+would only leave you wondering which one to look at.
 
-Crea en Home Assistant un usuario administrador llamado **DoLu**, genera un token de larga
-duración suyo, y se lo entrega al backend por un canal cifrado y verificado. Tú no copias
-nada.
+## What it does, in one line
 
-## Requisitos
+It creates an admin user in Home Assistant called **DoLu**, issues a long-lived token for
+it, and hands that token to the backend over an encrypted, verified channel. You copy
+nothing.
 
-- Home Assistant **2026.3** o posterior (antes de esa versión, las integraciones
-  personalizadas no pueden traer sus propias imágenes de marca).
-- Backend de DoLu **0.3.36** o posterior.
-- Home Assistant y el backend en la misma red local. El mDNS no cruza routers; si están
-  separados, el alta manual por IP sigue funcionando.
+## Requirements
 
-## Instalación
+- Home Assistant **2026.3** or newer (before that, custom integrations can't ship their own
+  brand images).
+- DoLu backend **0.3.36** or newer.
+- Home Assistant and the backend on the same local network. mDNS doesn't cross routers; if
+  they're on different networks, adding the backend by IP still works.
+
+## Installation
 
 ### HACS
 
-Añádelo como repositorio personalizado (HACS → los tres puntos → Repositorios
-personalizados), con la categoría *Integración*, y descárgalo. Luego **reinicia Home
-Assistant**: hasta que no reinicies, Home Assistant no sabe que existe y no puede descubrir
-nada.
+Add it as a custom repository (HACS → overflow menu → Custom repositories), category
+*Integration*, and download it. Then **restart Home Assistant**: until you do, Home
+Assistant doesn't know the integration exists and can't discover anything.
 
-### A mano
+### Manually
 
-Copia `custom_components/dolu/` dentro del directorio de configuración de Home Assistant
-(donde está `configuration.yaml`) y reinicia.
+Copy `custom_components/dolu/` into your Home Assistant configuration directory (the one
+with `configuration.yaml`) and restart.
 
-## Uso
+## Usage
 
-1. En Home Assistant, el backend aparece en **Ajustes → Dispositivos y servicios** como
-   descubierto. Si no aparece, añádelo a mano por su dirección IP.
-2. Genera un código de emparejamiento en el panel de DoLu, en **Gestión → Home Assistant**.
-   Se muestra una sola vez y dura diez minutos.
-3. Teclea el código en Home Assistant.
-4. Compara la huella que aparece entonces con la que muestra el panel de DoLu, par por par,
-   y confirma.
+1. The backend shows up under **Settings → Devices & services** as discovered. If it
+   doesn't, add it by hand using its IP address.
+2. Generate a pairing code in the DoLu admin panel, under **Management → Home Assistant**.
+   It is shown once and lasts ten minutes.
+3. Type the code into Home Assistant.
+4. Compare the fingerprint it then shows against the one in the DoLu panel, pair by pair,
+   and confirm.
 
-Al confirmar se crea el usuario **DoLu** y se entrega su token. A partir de ahí el backend
-habla con Home Assistant por su cuenta.
+Confirming creates the **DoLu** user and hands over its token. From then on the backend
+talks to Home Assistant on its own.
 
-### Por qué el orden es ese
+### Why the steps are in that order
 
-No es arbitrario. Lo que se acaba entregando es un acceso de administrador a la casa, así
-que quien tiene que autenticar es Home Assistant, y eso decide el orden:
+The order isn't arbitrary. What eventually changes hands is admin access to your home, so
+the side that has to do the authenticating is Home Assistant — and that decides everything:
 
-- **La huella se fija antes de hablar.** La primera petición ya exige que el certificado sea
-  el que anunció el backend. Alguien que copie ese anuncio no llega ni a la primera
-  pantalla: su certificado es otro.
-- **El código no se envía nunca.** Sirve para que el backend *demuestre* que lo conoce. Si
-  no lo demuestra, Home Assistant se para sin haber enviado nada.
-- **La huella se enseña al final, no al principio**, y es la del certificado que sirvió de
-  verdad la conexión. Compararla con el panel es la última barrera, la que queda si alguien
-  llegara a ver el código por encima de tu hombro. Por eso son los mismos diez pares que
-  muestra DoLu: se leen una pantalla al lado de la otra.
+- **The certificate is pinned before a word is exchanged.** The very first request already
+  demands the certificate the backend announced. Someone who copies that announcement never
+  reaches the first screen: their certificate is a different one.
+- **The code is never sent.** It's used to make the backend *prove* it knows it. If it
+  can't, Home Assistant stops without having sent anything at all.
+- **The fingerprint is shown last, not first**, and it's the fingerprint of the certificate
+  that actually served the connection. Comparing it against the panel is the final barrier —
+  the one left if someone read your code over your shoulder. That's why it's the same ten
+  pairs DoLu shows: you read the two screens side by side.
 
-Un detalle que conviene saber: si tecleas mal el código, Home Assistant se da cuenta **sin
-preguntarle al backend**, así que ese error **no gasta** ninguno de los cinco intentos que
-bloquean el código. El tope de cinco está para quien le manda pruebas al backend, no para
-quien se equivoca escribiendo.
+Worth knowing: if you mistype the code, Home Assistant catches it **without asking the
+backend**, so a typo doesn't burn any of the five attempts that lock the code. That limit is
+there for someone sending proofs at the backend, not for someone fumbling a keyboard.
 
-## Dónde ver y revocar el acceso de DoLu
+## Finding and revoking DoLu's access
 
-Esto es lo más importante de este README, porque es lo que te deja deshacer todo sin
-depender de nadie.
+This is the most important part of this README, because it's what lets you undo everything
+without anyone's help.
 
-### Dónde NO está
+### Where it isn't
 
-**No busques el token en tu perfil.** La lista de *Tokens de acceso de larga duración* de
-Ajustes → tu avatar → Seguridad muestra únicamente los tokens **del usuario con el que has
-iniciado sesión**, y el de DoLu cuelga de un usuario aparte. Ahí no va a aparecer nunca, y
-no es que falte: es que no es tuyo.
+**Don't go looking for the token in your profile.** The *Long-lived access tokens* list
+under Settings → your avatar → Security shows only the tokens belonging to **the user you're
+signed in as**, and DoLu's token belongs to a separate user. It will never appear there.
+Nothing is missing — it just isn't yours.
 
-### Dónde sí está
+### Where it is
 
-**Ajustes → Personas → Usuarios**. Verás un usuario llamado **DoLu**:
+**Settings → People → Users**, where you'll find a user named **DoLu**:
 
-- Es **administrador**, porque escribir estados y disparar eventos en Home Assistant lo
-  exige. No hay un permiso intermedio que sirva.
-- Tiene marcado **"Solo acceso local"**, porque el backend siempre está en tu red.
-- **No puede iniciar sesión**: nace sin contraseña ni credenciales. Existe solo para colgar
-  de él el token.
+- It's an **administrator**, because writing states and firing events in Home Assistant
+  requires it. There's no middle permission that would do.
+- **Local access only** is switched on, because the backend always lives on your network.
+- It **cannot sign in**: it's created without a password or any credentials. It exists only
+  to hold the token.
 
-### Cómo se revoca
+### How to revoke it
 
-| Lo que quieres | Qué haces |
+| What you want | What to do |
 | --- | --- |
-| Cortar el acceso ya | Borra el usuario **DoLu** en Ajustes → Personas. El token muere con él |
-| Cortarlo sin borrarlo | Desactiva el usuario. Home Assistant borra todos sus tokens |
-| Quitarlo todo, limpio | Borra la integración en Ajustes → Dispositivos y servicios. Revoca el token, borra el usuario y avisa al backend para que olvide el enlace |
+| Cut off access now | Delete the **DoLu** user under Settings → People. The token dies with it |
+| Cut it off without deleting | Deactivate the user. Home Assistant drops all of its tokens |
+| Remove everything, cleanly | Delete the integration under Settings → Devices & services. That revokes the token, deletes the user, and tells the backend to forget the link |
 
-Si revocas el acceso sin borrar la integración, Home Assistant se da cuenta solo: la
-integración se marca como que necesita atención y te ofrece volver a emparejar. El panel de
-DoLu lo dirá también, y desde los dos sitios se llega al mismo sitio.
+If you revoke access without removing the integration, Home Assistant notices by itself: the
+integration is flagged as needing attention and offers to pair again. The DoLu panel says so
+too, and both routes lead to the same place.
 
-### Si el acceso deja de funcionar sin que hayas tocado nada
+### When access stops working on its own
 
-Hay **dos** causas posibles y desde fuera se parecen:
+There are **two** possible causes, and from the outside they look identical:
 
-1. **El token se revocó** — alguien borró o desactivó el usuario DoLu, o le quitó el rol de
-   administrador. Se arregla volviendo a emparejar.
-2. **El backend dejó de hablar desde una dirección local.** El usuario DoLu tiene marcado
-   "Solo acceso local", así que una VPN mal enrutada, un NAT que presente una dirección
-   pública o un proxy inverso delante de Home Assistant producen **exactamente el mismo
-   rechazo**. Volver a emparejar no arregla esto: funcionaría hasta el siguiente arranque.
-   Se arregla en la red, o desmarcando "Solo acceso local" en el usuario DoLu.
+1. **The token was revoked** — someone deleted or deactivated the DoLu user, or took away
+   its administrator role. Pair again and you're done.
+2. **The backend stopped talking from a local address.** The DoLu user has "Local access
+   only" switched on, so a misrouted VPN, a NAT presenting a public address, or a reverse
+   proxy sitting in front of Home Assistant all produce **exactly the same rejection**.
+   Pairing again will not fix this one — it would work until the next restart. Fix it in the
+   network, or clear "Local access only" on the DoLu user.
 
-## Privacidad y alcance
+## Privacy and scope
 
-- El token vive en el backend, en un archivo con permisos `0600`, y no se escribe en ningún
-  registro ni se muestra en ninguna pantalla.
-- La integración **no envía nada fuera de tu red**: solo habla con el backend, por su
-  dirección local y con su certificado fijado.
-- No crea entidades, dispositivos ni automatizaciones.
+- The token lives on the backend, in a file with `0600` permissions. It is never written to
+  a log and never shown on a screen.
+- The integration **sends nothing outside your network**: it only talks to the backend, at
+  its local address, with its certificate pinned.
+- It creates no entities, no devices and no automations.
 
-## Desarrollo
+## Development
 
-Las imágenes de marca viven en `custom_components/dolu/brand/`: `icon.png` e `icon@2x.png`
-con la D oscura, para tema claro, y `dark_icon.png` y `dark_icon@2x.png` con la D blanca,
-para tema oscuro. Home Assistant sirve las variantes oscuras desde el directorio local igual
-que las claras, y si alguna faltara caería a `icon.png`.
+Brand images live in `custom_components/dolu/brand/`: `icon.png` and `icon@2x.png` with the
+dark D for light themes, `dark_icon.png` and `dark_icon@2x.png` with the white D for dark
+themes. Home Assistant serves the dark variants from the local directory just like the light
+ones, and falls back to `icon.png` if any is missing.
 
-Para probar contra un Home Assistant de usar y tirar (un contenedor con su propio directorio
-de configuración), copiar la carpeta de la integración y reiniciarlo:
+To test against a throwaway Home Assistant (a container with its own configuration
+directory), copy the integration directory over and restart it:
 
 ```bash
 rsync -av --delete --exclude __pycache__ \
-    custom_components/dolu/ USUARIO@HOST:RUTA_CONFIG/custom_components/dolu/
-ssh USUARIO@HOST docker restart NOMBRE_CONTENEDOR
+    custom_components/dolu/ USER@HOST:CONFIG_PATH/custom_components/dolu/
+ssh USER@HOST docker restart CONTAINER_NAME
 ```
 
-Dos detalles que muerden:
+Two details that bite:
 
-- El `--delete` apunta solo a la carpeta de la integración. Contra el directorio de
-  configuración entero, borraría Home Assistant.
-- El `--exclude __pycache__` no es cosmético: Home Assistant escribe ahí desde dentro del
-  contenedor, donde corre como root, y sin excluirlo el `--delete` falla al intentar borrar
-  archivos que no son suyos.
+- The `--delete` points at the integration directory only. Against the whole configuration
+  directory, it would wipe Home Assistant.
+- The `--exclude __pycache__` isn't cosmetic: Home Assistant writes there from inside the
+  container, where it runs as root, and without the exclusion `--delete` fails trying to
+  remove files that aren't its own.
 
-Cada cambio necesita reiniciar Home Assistant —los módulos de una integración se importan
-una sola vez—, pero el nivel de registro sí se puede subir en caliente, desde Herramientas
-para desarrolladores → Acciones:
+Every change needs a Home Assistant restart — an integration's modules are imported once —
+but the log level can be raised live, from Developer tools → Actions:
 
 ```yaml
 action: logger.set_level
@@ -161,31 +160,31 @@ data:
   custom_components.dolu: debug
 ```
 
-Y un aviso que ahorra una tarde: **el navegador cachea las traducciones**. Una clave añadida
-en una versión recién desplegada no aparece hasta una recarga forzada (`Ctrl+Shift+R`), y
-una clave que falta no da error — se pinta vacía o en crudo. Si un texto sale raro, recarga
-antes de darlo por roto. Los fallos de formato sí se ven: Home Assistant los recoge en su
-registro como `frontend.js.modern`.
+And one warning that saves an afternoon: **the browser caches translations**. A key added in
+a freshly deployed version won't show up until a hard reload (`Ctrl+Shift+R`), and a missing
+key doesn't raise an error — it renders empty, or as the raw key. If a string looks wrong,
+reload before assuming it's broken. Formatting failures *are* visible: Home Assistant picks
+them up in its own log under `frontend.js.modern`.
 
-### Probar el emparejamiento
+### Testing the pairing
 
-`scripts/e2e_pair_test.py` ejercita `custom_components/dolu/pairing.py` —el mismo archivo que
-corre dentro del flujo— contra un backend real, desde dentro del contenedor de Home
-Assistant, que es donde están `aiohttp` y `homeassistant`:
+`scripts/e2e_pair_test.py` exercises `custom_components/dolu/pairing.py` — the very file
+that runs inside the flow — against a real backend, from inside the Home Assistant
+container, which is where `aiohttp` and `homeassistant` live:
 
 ```bash
-docker exec NOMBRE_CONTENEDOR python3 /config/e2e_pair_test.py \
-    --host DIRECCION_DEL_BACKEND --puerto 3000 --fp HUELLA --codigo XXXX-XXXX
+docker exec CONTAINER_NAME python3 /config/e2e_pair_test.py \
+    --host BACKEND_ADDRESS --port 3000 --fp FINGERPRINT --code XXXX-XXXX
 ```
 
-Comprueba, además de las dos rutas, lo que se rompe en silencio: que `scrypt(código, salt)` y
-el transcript del HMAC den lo mismo en Python y en Node. Si las dos puntas se separan ahí, el
-síntoma es "código incorrecto" con el código correcto.
+Besides the two endpoints, it checks the thing that breaks silently: that
+`scrypt(code, salt)` and the HMAC transcript come out identical in Python and in Node. When
+those two drift apart, the symptom is "wrong code" with the right code.
 
-Para la barrera del certificado hace falta un impostor de verdad —un segundo HTTPS con
-certificado propio que se anuncie con la huella del backend copiada—, porque que el
-emparejamiento funcione no demuestra que el pinning sirva.
+Testing the certificate barrier needs a real impostor — a second HTTPS server with its own
+certificate, announcing the real backend's fingerprint — because a pairing that works proves
+nothing about whether the pinning does.
 
-## Licencia
+## License
 
-MIT. Ver [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

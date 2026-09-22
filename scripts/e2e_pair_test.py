@@ -89,9 +89,11 @@ async def espera_fallo(nombre: str, coro, motivo_esperado: str) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", required=True)
-    parser.add_argument("--puerto", type=int, default=3000)
+    # Alias en inglés para que lo que se copia del README en inglés funcione tal cual. Los
+    # nombres largos en español se mantienen: son los que aparecen en el resto del repo.
+    parser.add_argument("--puerto", "--port", type=int, default=3000)
     parser.add_argument("--fp", required=True, help="Huella anunciada del backend")
-    parser.add_argument("--codigo", help="Código de emparejamiento recién generado")
+    parser.add_argument("--codigo", "--code", help="Código de emparejamiento recién generado")
     parser.add_argument("--vector", help="code:salt:key_hex:proof_hex calculado por Node")
     parser.add_argument("--impostor-puerto", type=int)
     parser.add_argument("--solo-fallos", action="store_true")
