@@ -60,11 +60,11 @@ Los pasos 3 y 4 llegan con el emparejamiento; hoy el alta se limita a confirmar.
 
 ## Desarrollo
 
-El icono de la marca se genera con los trazos del logotipo, no se dibuja a mano:
-
-```bash
-python3 scripts/make_brand_icons.py
-```
+Las imágenes de marca viven en `custom_components/dolu/brand/` y son las mismas del icono
+de la app: `icon.png` e `icon@2x.png` con la D oscura, para tema claro, y `dark_icon.png` y
+`dark_icon@2x.png` con la D blanca, para tema oscuro. Home Assistant sirve las variantes
+oscuras desde el directorio local igual que las claras, y si alguna faltara caería a
+`icon.png`.
 
 Para probar contra un Home Assistant de usar y tirar, copiar la carpeta de la integración y
 reiniciar el contenedor:

@@ -1,5 +1,11 @@
 # Historial de cambios
 
+## 0.1.1 — 2026-09-22
+
+- El icono de marca pasa a ser el de la app: cuatro PNG con fondo transparente, con variante
+  clara y oscura (`icon.png`, `icon@2x.png`, `dark_icon.png`, `dark_icon@2x.png`). Se retira
+  el generador con el que se compuso el provisional.
+
 ## 0.1.0 — 2026-09-22
 
 Ronda 0: el esqueleto de la integración.
