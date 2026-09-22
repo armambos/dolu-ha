@@ -8,18 +8,20 @@ en abstracto, sino las dos cosas que se rompen en silencio:
    `scrypt(código, salt)` y el transcript del HMAC sean idénticos byte a byte en las dos
    puntas. Si se separan, el síntoma es "código incorrecto" con el código correcto, que es
    de los errores que cuestan un día entero.
-2. **Que las barreras aborten.** Con el impostor levantado (`scripts/impostor.mjs` del
-   backend), que fijar la huella pare de verdad la conexión.
+2. **Que las barreras aborten.** Con un impostor levantado —un segundo HTTPS con
+   certificado propio que anuncie la huella del backend copiada—, que fijar la huella pare
+   de verdad la conexión.
 
 Se ejecuta dentro del contenedor de Home Assistant, que es donde están aiohttp y
-homeassistant, y desde donde la integración va a hablar de verdad:
+homeassistant, y desde donde la integración va a hablar de verdad. Copia este archivo al
+directorio de configuración del contenedor y lánzalo con:
 
-    docker exec ha-pruebas python3 /config/dolu-pruebas/e2e_pair_test.py \\
-        --host 10.2.1.14 --puerto 3100 --fp <huella> --codigo XXXX-XXXX
+    docker exec NOMBRE_CONTENEDOR python3 /config/e2e_pair_test.py \\
+        --host DIRECCION_DEL_BACKEND --puerto 3000 --fp HUELLA --codigo XXXX-XXXX
 
 Argumentos opcionales:
     --vector code:salt:key_hex:proof_hex   Vector calculado por Node, para el punto 1.
-    --impostor-puerto 3200                 Si está levantado, prueba la barrera 1.
+    --impostor-puerto PUERTO               Si hay un impostor levantado, prueba la barrera 1.
     --solo-fallos                          No gasta el código: omite el emparejamiento bueno.
 """
 
@@ -87,7 +89,7 @@ async def espera_fallo(nombre: str, coro, motivo_esperado: str) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", required=True)
-    parser.add_argument("--puerto", type=int, default=3100)
+    parser.add_argument("--puerto", type=int, default=3000)
     parser.add_argument("--fp", required=True, help="Huella anunciada del backend")
     parser.add_argument("--codigo", help="Código de emparejamiento recién generado")
     parser.add_argument("--vector", help="code:salt:key_hex:proof_hex calculado por Node")
