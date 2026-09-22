@@ -28,6 +28,10 @@
       "verify_unused": {
         "title": "Cotejar la huella",
         "description": "**{name}**, en {host}, versión {version}, demostró que conoce el código, y la huella del certificado que sirvió esta conexión es:\n\n**{fingerprint}**\n\nCompárala con la del panel de DoLu antes de seguir.\n\n⚠️ **Este backend no va a usar lo que se le entregue.** Tiene `HA_BASE_URL` y `HA_LONG_LIVED_TOKEN` en su archivo `.env`, y esas mandan sobre las credenciales de un emparejamiento: se guardarán, pero seguirá hablando con el Home Assistant del `.env`. Es a propósito, para que un emparejamiento no pueda desconectar un backend configurado a mano.\n\nSi sigues, se creará igualmente el usuario **DoLu** y su token. Para que se usen, quita esas dos líneas del `.env` del backend y reinícialo."
+      },
+      "reauth_confirm": {
+        "title": "Volver a emparejar con DoLu",
+        "description": "El acceso de DoLu a Home Assistant dejó de valer. Suele ser porque se borró o se desactivó el usuario **DoLu** en Ajustes → Personas, o porque se le quitó el rol de administrador.\n\nPara arreglarlo hay que emparejar otra vez con **{name}** ({host}): genera un código nuevo en el panel de DoLu y tenlo a mano.\n\nSe reutilizará el usuario DoLu si todavía existe, y se revocará el token anterior antes de crear el nuevo — no va a quedar un segundo administrador."
       }
     },
     "error": {
@@ -60,7 +64,9 @@
       "no_ha_url": "Home Assistant no tiene ninguna dirección que darle al backend. Configura una en Ajustes → Sistema → Red (dirección local) y vuelve a intentarlo.",
       "user_failed": "No se pudo crear el usuario de DoLu en Home Assistant. Mira el registro para ver por qué; no se entregó nada al backend.",
       "token_failed": "No se pudo crear el token de DoLu. No se entregó nada al backend, y lo que se hubiera creado se deshizo.",
-      "token_refused": "Home Assistant se negó a crear el token de DoLu. Suele significar que ya existe uno anterior que no se pudo quitar: borra el usuario DoLu en Ajustes → Personas y empareja otra vez."
+      "token_refused": "Home Assistant se negó a crear el token de DoLu. Suele significar que ya existe uno anterior que no se pudo quitar: borra el usuario DoLu en Ajustes → Personas y empareja otra vez.",
+      "reauth_successful": "DoLu volvió a emparejarse. El acceso está restablecido.",
+      "reconfigure_successful": "DoLu volvió a emparejarse."
     }
   }
 }

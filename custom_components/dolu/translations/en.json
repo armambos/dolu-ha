@@ -28,6 +28,10 @@
       "verify_unused": {
         "title": "Check the fingerprint",
         "description": "**{name}** at {host}, version {version}, proved it knows the pairing code, and the fingerprint of the certificate that served this connection is:\n\n**{fingerprint}**\n\nCompare it against the DoLu admin panel before going on.\n\n⚠️ **This backend will not use what it is given.** It has `HA_BASE_URL` and `HA_LONG_LIVED_TOKEN` in its `.env` file, and those take precedence over paired credentials: they will be stored, but it will keep talking to the Home Assistant from the `.env`. This is on purpose, so that a pairing cannot disconnect a backend that was set up by hand.\n\nIf you continue, the **DoLu** user and its token will still be created. To make them count, remove those two lines from the backend's `.env` and restart it."
+      },
+      "reauth_confirm": {
+        "title": "Pair with DoLu again",
+        "description": "DoLu's access to Home Assistant stopped working. Usually that means the **DoLu** user was deleted or deactivated under Settings → People, or lost its administrator role.\n\nTo fix it, pair again with **{name}** ({host}): generate a new code in the DoLu admin panel and have it ready.\n\nThe DoLu user will be reused if it still exists, and the previous token will be revoked before creating the new one — you will not end up with a second administrator."
       }
     },
     "error": {
@@ -60,7 +64,9 @@
       "no_ha_url": "Home Assistant has no address to give the backend. Set one under Settings → System → Network (local address) and try again.",
       "user_failed": "The DoLu user could not be created in Home Assistant. Check the log for why; nothing was delivered to the backend.",
       "token_failed": "The DoLu token could not be created. Nothing was delivered to the backend, and anything created along the way was undone.",
-      "token_refused": "Home Assistant refused to create the DoLu token. That usually means an earlier one is still there and could not be removed: delete the DoLu user under Settings → People and pair again."
+      "token_refused": "Home Assistant refused to create the DoLu token. That usually means an earlier one is still there and could not be removed: delete the DoLu user under Settings → People and pair again.",
+      "reauth_successful": "DoLu paired again. Access is restored.",
+      "reconfigure_successful": "DoLu paired again."
     }
   }
 }

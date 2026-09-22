@@ -27,7 +27,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.components.onboarding import async_is_onboarded
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.network import NoURLAvailableError, get_url
@@ -122,6 +122,9 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         # reutiliza en vez de crear un segundo administrador. Se busca por id y nunca por
         # nombre, que el dueño lo puede haber renombrado.
         self._reauth_user_id: str | None = None
+        # Reautenticación: se re-empareja sobre una entrada que ya existe, así que al final
+        # se actualiza en vez de crear otra.
+        self._reauth_entry: ConfigEntry | None = None
 
     def _onboarding_pending(self) -> bool:
         """¿Home Assistant todavía no ha terminado su configuración inicial?
@@ -278,6 +281,43 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
     # El emparejamiento
     # ------------------------------------------------------------------
 
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
+        """El acceso dejó de valer: Home Assistant pide volver a emparejar.
+
+        Se llega aquí desde `ConfigEntryAuthFailed` — al arrancar la entrada, o en caliente
+        cuando alguien borra o desactiva el usuario DoLu (ver `__init__.py`). Todo lo que
+        hace falta para re-emparejar ya está en la entrada: dónde está el backend, con qué
+        huella se le reconoce y qué usuario usó la última vez.
+        """
+        entry = self._get_reauth_entry()
+        self._reauth_entry = entry
+        self._host = entry.data.get(CONF_HOST)
+        self._port = entry.data.get(CONF_PORT, DEFAULT_PORT)
+        self._fingerprint = normalize_fingerprint(entry.data.get(CONF_FINGERPRINT, ""))
+        self._installation_id = entry.data.get(CONF_INSTALLATION_ID, "")
+        self._announced_name = entry.data.get(CONF_BACKEND_NAME) or "DoLu"
+        # Lo que evita crear un segundo administrador: se reutiliza el usuario de antes.
+        self._reauth_user_id = entry.data.get(CONF_USER_ID)
+
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Explicar qué pasó antes de pedir otro código."""
+        if user_input is not None:
+            if self._onboarding_pending():
+                return self.async_abort(reason="onboarding_incomplete")
+            return await self.async_step_code()
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            description_placeholders={
+                "name": self._announced_name,
+                "host": f"{self._host}:{self._port}",
+            },
+        )
+
     async def async_step_code(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """El código de un solo uso, y con él la prueba del backend.
 
@@ -309,16 +349,23 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
                 # alta manual esto es lo primero que la identifica, y en el descubrimiento
                 # confirma que el anuncio no mentía sobre el identificador.
                 if hello.installation_id:
+                    # La comprobación de identidad vale en los dos caminos, y en la
+                    # reautenticación más: si al re-emparejar contesta otra instalación,
+                    # entregarle el token sería cambiar de backend sin que nadie lo pidiera.
                     if self._installation_id and hello.installation_id != self._installation_id:
                         _LOGGER.warning(
-                            "El backend se identificó como %s pero el anuncio decía %s",
+                            "El backend se identificó como %s pero se esperaba %s",
                             hello.installation_id,
                             self._installation_id,
                         )
                         return self.async_abort(reason="identity_mismatch")
                     self._installation_id = hello.installation_id
-                    await self.async_set_unique_id(hello.installation_id)
-                    self._abort_if_unique_id_configured()
+
+                    # Lo que NO vale en la reautenticación es abortar por "ya configurado":
+                    # la entrada existe a propósito, es la que se está arreglando.
+                    if self._reauth_entry is None:
+                        await self.async_set_unique_id(hello.installation_id)
+                        self._abort_if_unique_id_configured()
 
                 return await self.async_step_verify()
 
@@ -440,19 +487,26 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
                 "tiene HA_BASE_URL y HA_LONG_LIVED_TOKEN, y esas mandan"
             )
 
-        return self.async_create_entry(
-            title=self._hello.name or "DoLu",
-            data={
-                CONF_HOST: self._host,
-                CONF_PORT: self._port,
-                CONF_FINGERPRINT: self._client.fingerprint,
-                CONF_INSTALLATION_ID: self._installation_id,
-                CONF_BACKEND_VERSION: self._hello.version,
-                CONF_BACKEND_NAME: self._hello.name,
-                CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
-                # Sin estos dos, la ronda 5 no puede deshacer lo que la 4 hizo.
-                CONF_USER_ID: user.id,
-                CONF_REFRESH_TOKEN_ID: refresh_token_id,
-                CONF_CREDENTIALS_UNUSED: unused,
-            },
-        )
+        data = {
+            CONF_HOST: self._host,
+            CONF_PORT: self._port,
+            CONF_FINGERPRINT: self._client.fingerprint,
+            CONF_INSTALLATION_ID: self._installation_id,
+            CONF_BACKEND_VERSION: self._hello.version,
+            CONF_BACKEND_NAME: self._hello.name,
+            CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
+            # Sin estos dos no se puede deshacer después lo que se acaba de crear.
+            CONF_USER_ID: user.id,
+            CONF_REFRESH_TOKEN_ID: refresh_token_id,
+            CONF_CREDENTIALS_UNUSED: unused,
+        }
+
+        if self._reauth_entry is not None:
+            # Reautenticación: la entrada ya existe y es la que se está arreglando. Se
+            # actualiza y se recarga, que es lo que quita el aviso de "necesita atención" y
+            # lo que vuelve a poner en marcha la vigilancia del token nuevo.
+            return self.async_update_reload_and_abort(
+                self._reauth_entry, data_updates=data
+            )
+
+        return self.async_create_entry(title=self._hello.name or "DoLu", data=data)

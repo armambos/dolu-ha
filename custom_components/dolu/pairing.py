@@ -379,3 +379,54 @@ class PairingClient:
             raise PairingError("unexpected_response")
 
         return body
+
+
+async def async_notify_unlink(
+    hass: HomeAssistant,
+    session: ClientSession,
+    host: str,
+    port: int,
+    fingerprint: str,
+    user_id: str,
+    refresh_token_id: str,
+) -> bool:
+    """Avisar al backend de que esta integración se ha borrado.
+
+    Se autentica con los dos identificadores que el backend recibió en el emparejamiento.
+    No son un token, pero solo los conocen las dos partes de aquel emparejamiento, y lo que
+    protegen es un aviso que **desconecta** el backend: sin autenticar, cualquiera en la red
+    podría tirar la integración de una casa con una sola petición.
+
+    Va por el mismo canal fijado por huella que todo lo demás, y es **el mejor esfuerzo**: si
+    el backend está apagado, el aviso se pierde y no pasa nada grave — se despertará con un
+    token muerto y lo dirá en su panel. Lo que no se puede perder es el borrado del usuario y
+    del token, y eso ya ocurrió antes de llegar aquí.
+    """
+    url = f"https://{host}:{port}/ha/unlink"
+    ssl_pin = Fingerprint(fingerprint_bytes(normalize_fingerprint(fingerprint)))
+
+    try:
+        async with asyncio.timeout(PAIR_TIMEOUT_SECONDS):
+            async with session.post(
+                url,
+                json={"user_id": user_id, "refresh_token_id": refresh_token_id},
+                ssl=ssl_pin,
+            ) as response:
+                if response.status == 200:
+                    return True
+                _LOGGER.warning(
+                    "El backend no aceptó el aviso de borrado (HTTP %s)", response.status
+                )
+                return False
+    except ServerFingerprintMismatch:
+        # Alguien ha ocupado la dirección del backend. No se insiste: el aviso no es
+        # crítico y no hay nada que ganar hablando con quien no es.
+        _LOGGER.warning("El certificado de %s no es el del backend; no se avisa", url)
+        return False
+    except (ClientError, asyncio.TimeoutError, OSError) as err:
+        _LOGGER.info(
+            "No se pudo avisar al backend de que la integración se borró (%s). "
+            "Se enterará solo: sus peticiones pasarán a ser rechazadas.",
+            err,
+        )
+        return False

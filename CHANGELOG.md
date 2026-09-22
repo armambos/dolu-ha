@@ -1,5 +1,26 @@
 # Historial de cambios
 
+## 0.4.0 — 2026-09-22
+
+Ronda 5: el ciclo de vida. Lo que faltaba era deshacer.
+
+- **Al borrar la integración** se revoca el token, se borra el usuario DoLu y se avisa al
+  backend, en ese orden. Primero lo irreversible si se omite —un administrador de más en la
+  casa de alguien—, y el aviso después, al mejor esfuerzo: si el backend está apagado, se
+  enterará solo cuando sus peticiones empiecen a ser rechazadas.
+- **Home Assistant se entera de que su acceso dejó de valer**, que era el caso feo: si
+  alguien borra el usuario DoLu, el backend lo nota en el acto por el 401, pero la entrada
+  se quedaba en verde. Ahora la entrada vigila su propio token —sin red, mirando
+  `hass.auth`— y reacciona a `user_removed` y `user_updated` en el momento, con un
+  temporizador de respaldo cada diez minutos para el único camino que no dispara evento.
+  Las dos pantallas dicen lo mismo y las dos llevan a re-emparejar.
+- **Reautenticación**: `ConfigEntryAuthFailed` abre el flujo de siempre pidiendo un código
+  nuevo, reutilizando el usuario DoLu y revocando el token anterior. También se comprueba
+  que quien contesta sea la misma instalación: re-emparejar no puede acabar entregándole el
+  token a otro backend.
+- El aviso de borrado va autenticado con los identificadores del emparejamiento. Sin eso,
+  cualquiera en la red podría desconectar el backend de una casa con una sola petición.
+
 ## 0.3.0 — 2026-09-22
 
 Ronda 4: el token de verdad. El objetivo del proyecto queda cumplido — una instalación
