@@ -1,15 +1,22 @@
-"""Alta del backend de DoLu: descubrimiento por mDNS y alta manual.
+"""Alta del backend de DoLu: descubrimiento por mDNS, alta manual y emparejamiento.
 
-RONDA 0. Lo que hay aquí es el esqueleto: el backend aparece descubierto, se confirma y
-queda una entrada de configuración. El emparejamiento —el código de un solo uso y las dos
-pruebas contra /ha/pair/hello y /ha/pair/complete— es la ronda 3.
+RONDA 3. El flujo ya no se limita a apuntar dónde está el backend: se empareja con él.
 
-Hay una advertencia que conviene no perder de vista mientras tanto: la huella que se enseña
-en la confirmación sale HOY del registro TXT del anuncio mDNS, y un registro TXT lo escribe
-cualquiera en la red. Por eso el texto de esa pantalla dice "anunciada" y no promete nada.
-En la ronda 3, la huella que se enseñe será la del certificado que sirvió de verdad la
-conexión TLS, comprobada con aiohttp.Fingerprint antes de pintar nada; ahí el cotejo pasa a
-significar algo.
+El orden de las pantallas no es de comodidad, es el del protocolo (sección 2.2 del análisis):
+
+1. **Confirmar** — se ha encontrado un backend. Aquí todavía no se afirma nada sobre él:
+   todo lo que sabemos viene del anuncio, y un anuncio lo escribe cualquiera en la red.
+2. **Código** — la persona teclea el código de un solo uso que generó en el panel de DoLu.
+   Con él, el backend demuestra que lo conoce (`proof_be`) sobre una conexión cuyo
+   certificado ya está fijado. Si eso no cuadra, el flujo no envía nada.
+3. **Cotejar la huella** — ya con la respuesta verificada, se muestran el nombre real de la
+   instalación y la huella del certificado **que sirvió la conexión**, para compararla con la
+   del panel. Es la última barrera, la que queda si el impostor llegara a conocer el código.
+
+Solo después de eso Home Assistant envía su propia prueba y el contenido del emparejamiento.
+
+En esta ronda ese contenido es un payload de prueba, no un token: el usuario administrador y
+el token de larga duración son la ronda 4. Lo que se está probando aquí es el canal.
 """
 
 from __future__ import annotations
@@ -21,12 +28,17 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_BACKEND_NAME,
     CONF_BACKEND_VERSION,
     CONF_FINGERPRINT,
     CONF_INSTALLATION_ID,
+    CONF_PAIRED_AT,
     DOMAIN,
     SHORT_FINGERPRINT_GROUPS,
     TXT_FINGERPRINT,
@@ -34,10 +46,34 @@ from .const import (
     TXT_VERSION,
     ZEROCONF_TYPE,
 )
+from .pairing import (
+    BackendHello,
+    PairingClient,
+    PairingError,
+    normalize_fingerprint,
+    read_served_fingerprint,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_PORT = 3000
+
+CONF_CODE = "code"
+
+# Fallos que dejan seguir intentando en la misma pantalla: o son cosa del código (se genera
+# otro y se reintenta) o son transitorios. Los que no están aquí abortan el flujo, y hay uno
+# que importa mucho que aborte: `fingerprint_mismatch` significa que hay alguien suplantando
+# al backend en la red, y ahí no se reintenta, se para.
+RETRYABLE_ERRORS = {
+    "invalid_code",
+    "code_expired",
+    "code_used",
+    "code_locked",
+    "no_active_code",
+    "cannot_connect",
+    "too_many_requests",
+    "unexpected_response",
+}
 
 
 def announced_name(service_name: str) -> str:
@@ -47,7 +83,7 @@ def announced_name(service_name: str) -> str:
     el backend pone en MDNS_SERVICE_NAME. Avahi escapa los espacios como "\\032".
 
     Es solo una etiqueta: el nombre en el que se puede confiar llega por la conexión ya
-    fijada por huella cuando se empareja, no por un anuncio que escribe cualquiera.
+    fijada por huella al emparejar, no por un anuncio que escribe cualquiera.
     """
     etiqueta = service_name.split(f".{ZEROCONF_TYPE}")[0].replace("\\032", " ").strip()
     return etiqueta or "DoLu"
@@ -69,6 +105,13 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         self._fingerprint: str = ""
         self._installation_id: str = ""
         self._backend_version: str = ""
+        self._announced_name: str = "DoLu"
+        self._client: PairingClient | None = None
+        self._hello: BackendHello | None = None
+
+    # ------------------------------------------------------------------
+    # Cómo se llega hasta aquí: descubrimiento o alta manual
+    # ------------------------------------------------------------------
 
     async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         """El backend se anunció en la red."""
@@ -76,9 +119,21 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         installation_id = properties.get(TXT_INSTALLATION_ID)
         fingerprint = properties.get(TXT_FINGERPRINT)
 
+        # Un descubrimiento que se descarta no deja ninguna huella en la interfaz: la tarjeta
+        # simplemente no aparece, y desde fuera no hay forma de distinguirlo de que el
+        # anuncio no llegara. Por eso se anota aquí, antes de decidir nada.
+        _LOGGER.debug(
+            "Descubierto %s en %s:%s — instalación %s, huella %s",
+            discovery_info.name,
+            discovery_info.host,
+            discovery_info.port,
+            installation_id,
+            fingerprint,
+        )
+
         if not installation_id or not fingerprint:
             # Un anuncio sin identidad no sirve para nada: ni se puede evitar duplicarlo ni
-            # se puede cotejar contra nada.
+            # se puede fijar el certificado antes de hablar.
             return self.async_abort(reason="incomplete_discovery")
 
         # La identidad es la instalación, no la IP: así un backend que cambia de dirección
@@ -92,35 +147,36 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         #
         # La comprobación de arriba no basta: solo reconoce al backend que YA está dado de
         # alta, comparando identificadores de instalación, y una entrada creada por el alta
-        # manual todavía no tiene ninguno (la aprende en la ronda 3, hablando con el
-        # backend). Sin esta segunda comprobación, después de un alta manual el backend
-        # seguía apareciendo en "Descubierto" como si no estuviera configurado.
+        # manual puede no tener el mismo. Sin esta segunda comprobación, después de un alta
+        # manual el backend seguía apareciendo en "Descubierto" como si no estuviera
+        # configurado.
         if self._async_current_entries(include_ignore=False):
             return self.async_abort(reason="single_instance_allowed")
 
         self._host = discovery_info.host
         self._port = discovery_info.port or DEFAULT_PORT
-        self._fingerprint = fingerprint
+        self._fingerprint = normalize_fingerprint(fingerprint)
         self._installation_id = installation_id
         self._backend_version = properties.get(TXT_VERSION, "")
+        self._announced_name = announced_name(discovery_info.name)
 
         self.context["title_placeholders"] = {
-            "name": announced_name(discovery_info.name),
+            "name": self._announced_name,
             "host": self._host,
         }
 
         return await self.async_step_confirm()
 
     async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Confirmar el backend descubierto."""
+        """Se encontró un backend. Antes de emparejar, hay que ir a por el código."""
         if user_input is not None:
-            return self._create_entry()
+            return await self.async_step_code()
 
         return self.async_show_form(
             step_id="confirm",
             description_placeholders={
+                "name": self._announced_name,
                 "host": f"{self._host}:{self._port}",
-                "fingerprint": short_fingerprint(self._fingerprint),
                 "version": self._backend_version or "?",
             },
         )
@@ -132,9 +188,10 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
         que en cuanto Home Assistant y el backend queden en VLAN o subredes distintas este es
         el único camino.
 
-        RONDA 0: se apunta lo que teclee la persona y nada más. En la ronda 3, este paso
-        hablará con el backend para traerse su identidad y su huella, igual que hace el
-        descubrimiento.
+        La diferencia con el descubrimiento está en la huella. Allí viene anunciada y se
+        *fija* antes de hablar; aquí no hay anuncio, así que se lee la que el backend sirve
+        (TOFU) y todo el peso recae sobre las otras dos barreras: el código y el cotejo a ojo
+        de la pantalla siguiente.
         """
         # Hay un backend por casa, y esta comprobación es la que de verdad hace falta.
         #
@@ -159,27 +216,145 @@ class DoluConfigFlow(ConfigFlow, domain=DOMAIN):
             self._host = user_input[CONF_HOST]
             self._port = user_input[CONF_PORT]
             self._async_abort_entries_match({CONF_HOST: self._host, CONF_PORT: self._port})
-            return self._create_entry()
+
+            try:
+                self._fingerprint = await read_served_fingerprint(
+                    self.hass, self._host, self._port
+                )
+            except PairingError as err:
+                errors["base"] = err.reason
+            else:
+                return await self.async_step_code()
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_HOST): str,
-                    vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+                    vol.Required(CONF_HOST, default=self._host or vol.UNDEFINED): str,
+                    vol.Required(CONF_PORT, default=self._port): int,
                 }
             ),
             errors=errors,
         )
 
-    def _create_entry(self) -> ConfigFlowResult:
-        return self.async_create_entry(
-            title="DoLu",
-            data={
-                CONF_HOST: self._host,
-                CONF_PORT: self._port,
-                CONF_FINGERPRINT: self._fingerprint,
-                CONF_INSTALLATION_ID: self._installation_id,
-                CONF_BACKEND_VERSION: self._backend_version,
+    # ------------------------------------------------------------------
+    # El emparejamiento
+    # ------------------------------------------------------------------
+
+    async def async_step_code(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """El código de un solo uso, y con él la prueba del backend.
+
+        Nada se envía al backend más allá de un nonce hasta que su prueba cuadra: si el
+        código no es el bueno, o del otro lado no está quien dice ser, el flujo se entera
+        aquí y no ha entregado nada.
+        """
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            client = PairingClient(
+                self.hass,
+                async_get_clientsession(self.hass),
+                self._host,
+                self._port,
+                self._fingerprint,
+            )
+            try:
+                hello = await client.hello(user_input[CONF_CODE])
+            except PairingError as err:
+                if err.reason not in RETRYABLE_ERRORS:
+                    return self.async_abort(reason=err.reason)
+                errors["base"] = err.reason
+            else:
+                self._client = client
+                self._hello = hello
+
+                # Recién ahora se sabe con qué instalación se está hablando de verdad: en el
+                # alta manual esto es lo primero que la identifica, y en el descubrimiento
+                # confirma que el anuncio no mentía sobre el identificador.
+                if hello.installation_id:
+                    if self._installation_id and hello.installation_id != self._installation_id:
+                        _LOGGER.warning(
+                            "El backend se identificó como %s pero el anuncio decía %s",
+                            hello.installation_id,
+                            self._installation_id,
+                        )
+                        return self.async_abort(reason="identity_mismatch")
+                    self._installation_id = hello.installation_id
+                    await self.async_set_unique_id(hello.installation_id)
+                    self._abort_if_unique_id_configured()
+
+                return await self.async_step_verify()
+
+        return self.async_show_form(
+            step_id="code",
+            data_schema=vol.Schema({vol.Required(CONF_CODE): str}),
+            errors=errors,
+            description_placeholders={
+                "name": self._announced_name,
+                "host": f"{self._host}:{self._port}",
             },
         )
+
+    async def async_step_verify(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Cotejar la huella del certificado que sirvió la conexión, y entregar.
+
+        Esta pantalla es la barrera 2, y es la única que no puede automatizarse: si alguien
+        llegara a conocer el código, todo lo demás le saldría bien y solo el cotejo a ojo lo
+        distinguiría del backend real. Por eso los diez pares que se muestran son exactamente
+        los mismos que muestra el panel de DoLu, carácter por carácter.
+        """
+        if self._client is None or self._hello is None:
+            return self.async_abort(reason="session_lost")
+
+        if user_input is not None:
+            try:
+                await self._client.complete(self._test_payload())
+            except PairingError as err:
+                # Aquí ya no se reintenta: la conversación se consumió y el código es de un
+                # solo uso. Se empieza de nuevo, con un código nuevo.
+                return self.async_abort(reason=err.reason)
+
+            return self.async_create_entry(
+                title=self._hello.name or "DoLu",
+                data={
+                    CONF_HOST: self._host,
+                    CONF_PORT: self._port,
+                    CONF_FINGERPRINT: self._client.fingerprint,
+                    CONF_INSTALLATION_ID: self._installation_id,
+                    CONF_BACKEND_VERSION: self._hello.version,
+                    CONF_BACKEND_NAME: self._hello.name,
+                    CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
+                },
+            )
+
+        return self.async_show_form(
+            step_id="verify",
+            description_placeholders={
+                "name": self._hello.name,
+                "host": f"{self._host}:{self._port}",
+                "version": self._hello.version or "?",
+                "fingerprint": short_fingerprint(self._client.fingerprint),
+            },
+        )
+
+    def _test_payload(self) -> dict[str, Any]:
+        """Lo que viaja en `complete` en esta ronda: una prueba, no un token.
+
+        Lleva la URL de Home Assistant porque en la ronda 4 irá ahí de verdad, y conviene que
+        el camino ya esté ejercitado —incluido el caso de que no haya ninguna URL utilizable,
+        que es un fallo real y no una rareza.
+        """
+        try:
+            ha_url = get_url(self.hass, allow_internal=True, allow_ip=True)
+        except NoURLAvailableError:
+            ha_url = None
+
+        return {
+            "round": 3,
+            "test": True,
+            "ha_url": ha_url,
+            "note": (
+                "Payload de prueba de la ronda 3. En la ronda 4, aquí viajan la URL de Home "
+                "Assistant, el token de larga duración y el id del usuario creado."
+            ),
+        }

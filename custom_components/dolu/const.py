@@ -19,3 +19,9 @@ CONF_BACKEND_VERSION = "backend_version"
 # sean los mismos diez pares no es un detalle estético — las dos pantallas se comparan una
 # al lado de la otra, carácter por carácter.
 SHORT_FINGERPRINT_GROUPS = 10
+
+# Lo que el emparejamiento de la ronda 3 añade a la entrada. El nombre se guarda porque el
+# que vale es el que llegó por la conexión verificada, no el del anuncio: si alguien cambia
+# MDNS_SERVICE_NAME, la entrada sigue diciendo con qué instalación se emparejó.
+CONF_BACKEND_NAME = "backend_name"
+CONF_PAIRED_AT = "paired_at"

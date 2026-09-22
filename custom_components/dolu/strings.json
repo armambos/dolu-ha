@@ -4,7 +4,18 @@
     "step": {
       "confirm": {
         "title": "DoLu backend",
-        "description": "Backend found at {host}, version {version}.\n\nAnnounced certificate fingerprint:\n\n**{fingerprint}**\n\nThis fingerprint comes from the network announcement, and anyone on the network can write one of those: it is here so you can recognise the backend, not as proof. Once pairing is added, the fingerprint shown will be the one of the certificate that actually served the connection, and comparing it against the DoLu admin panel will mean something."
+        "description": "A DoLu backend announced itself as **{name}** at {host}, version {version}.\n\nEverything on this screen comes from that network announcement, and anyone on the network can write one of those. Nothing has been verified yet.\n\nTo pair, open the DoLu admin panel, go to **Home Assistant → Pairing**, and generate a code. It is shown once and lasts ten minutes."
+      },
+      "code": {
+        "title": "Pairing code",
+        "description": "Type the code generated in the DoLu admin panel of {name} ({host}).\n\nThe code is never sent: it is used to check that the backend on the other end knows it too. If it does not, this flow stops without sending anything.",
+        "data": {
+          "code": "Pairing code"
+        }
+      },
+      "verify": {
+        "title": "Check the fingerprint",
+        "description": "**{name}** at {host}, version {version}, proved it knows the pairing code.\n\nFingerprint of the certificate that actually served this connection:\n\n**{fingerprint}**\n\nCompare it against the one shown in the DoLu admin panel. They must match character for character. If they do not, cancel: something on the network is impersonating your backend."
       },
       "user": {
         "title": "Add a DoLu backend",
@@ -15,11 +26,32 @@
         }
       }
     },
+    "error": {
+      "invalid_code": "That code is not the one this backend is waiting for — or whatever answered is not your backend. Nothing was sent. Check the code shown in the DoLu panel, or generate a new one. This does not use up any of the code's five attempts.",
+      "code_expired": "The code expired. Generate a new one in the DoLu admin panel and type it here.",
+      "code_used": "That code was already used. Pairing codes work once: generate a new one.",
+      "code_locked": "The code is blocked after five failed attempts. Generate a new one in the DoLu admin panel.",
+      "no_active_code": "The backend has no active pairing code. Generate one in the DoLu admin panel, under Home Assistant → Pairing.",
+      "cannot_connect": "Could not reach the backend over HTTPS. Check that it is running and that the address and port are right.",
+      "too_many_requests": "Too many attempts in a row. Wait a minute and try again.",
+      "unexpected_response": "The backend answered something unexpected. Check that its version matches this integration."
+    },
     "abort": {
       "already_configured": "This DoLu backend is already set up.",
       "incomplete_discovery": "The announcement did not carry the backend identity. Check that the backend is running a version that announces itself (0.3.30 or newer).",
       "single_instance_allowed": "Only one DoLu backend can be set up: there is one per home.",
-      "ignored_entry": "This DoLu backend is set as ignored in Home Assistant. Stop ignoring it (Settings → Devices & services → ⋮ → Show ignored integrations) before adding it by hand."
+      "ignored_entry": "This DoLu backend is set as ignored in Home Assistant. Stop ignoring it (Settings → Devices & services → ⋮ → Show ignored integrations) before adding it by hand.",
+      "fingerprint_mismatch": "The certificate served does not match the announced fingerprint. Someone on the network is impersonating your DoLu backend, so nothing was sent. Check the backend and the network before trying again.",
+      "identity_mismatch": "The backend identified itself as a different installation than the one announced. Nothing was sent.",
+      "invalid_proof": "The backend rejected this Home Assistant's proof. Generate a new code and start again.",
+      "session_lost": "The pairing conversation expired. Generate a new code in the DoLu admin panel and start again.",
+      "cannot_connect": "Could not reach the backend over HTTPS.",
+      "code_expired": "The code expired before pairing finished. Generate a new one and start again.",
+      "code_used": "That code was already used. Generate a new one and start again.",
+      "code_locked": "The code is blocked after five failed attempts. Generate a new one.",
+      "no_active_code": "The backend has no active pairing code any more.",
+      "too_many_requests": "Too many attempts in a row. Wait a minute and start again.",
+      "unexpected_response": "The backend answered something unexpected."
     }
   }
 }

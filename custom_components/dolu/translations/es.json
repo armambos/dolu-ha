@@ -4,7 +4,18 @@
     "step": {
       "confirm": {
         "title": "Backend de DoLu",
-        "description": "Backend encontrado en {host}, versión {version}.\n\nHuella anunciada del certificado:\n\n**{fingerprint}**\n\nEsta huella viene del anuncio de la red, y un anuncio lo puede escribir cualquiera: está aquí para reconocer el backend, no como prueba. Cuando se añada el emparejamiento, la huella que se muestre será la del certificado que sirvió de verdad la conexión, y compararla con la del panel de DoLu pasará a significar algo."
+        "description": "Un backend de DoLu se anunció como **{name}** en {host}, versión {version}.\n\nTodo lo que aparece en esta pantalla viene de ese anuncio de la red, y un anuncio lo puede escribir cualquiera. Todavía no se ha comprobado nada.\n\nPara emparejar, abre el panel de DoLu, entra en **Home Assistant → Emparejamiento** y genera un código. Se muestra una sola vez y dura diez minutos."
+      },
+      "code": {
+        "title": "Código de emparejamiento",
+        "description": "Teclea el código generado en el panel de DoLu de {name} ({host}).\n\nEl código no se envía nunca: sirve para comprobar que el backend del otro lado también lo conoce. Si no lo conoce, este flujo se para sin haber enviado nada.",
+        "data": {
+          "code": "Código de emparejamiento"
+        }
+      },
+      "verify": {
+        "title": "Cotejar la huella",
+        "description": "**{name}**, en {host}, versión {version}, demostró que conoce el código.\n\nHuella del certificado que sirvió de verdad esta conexión:\n\n**{fingerprint}**\n\nCompárala con la que muestra el panel de DoLu. Tienen que coincidir carácter por carácter. Si no coinciden, cancela: algo en la red está suplantando a tu backend."
       },
       "user": {
         "title": "Añadir un backend de DoLu",
@@ -15,11 +26,32 @@
         }
       }
     },
+    "error": {
+      "invalid_code": "Ese código no es el que este backend está esperando — o quien contesta al otro lado no es tu backend. No se envió nada. Comprueba el código que muestra el panel de DoLu, o genera uno nuevo. Esto no gasta ninguno de los cinco intentos del código.",
+      "code_expired": "El código caducó. Genera uno nuevo en el panel de DoLu y tecléalo aquí.",
+      "code_used": "Ese código ya se usó. Los códigos de emparejamiento valen una sola vez: genera otro.",
+      "code_locked": "El código está bloqueado tras cinco intentos fallidos. Genera uno nuevo en el panel de DoLu.",
+      "no_active_code": "El backend no tiene ningún código de emparejamiento activo. Genera uno en el panel de DoLu, en Home Assistant → Emparejamiento.",
+      "cannot_connect": "No se pudo llegar al backend por HTTPS. Comprueba que esté funcionando y que la dirección y el puerto sean los correctos.",
+      "too_many_requests": "Demasiados intentos seguidos. Espera un minuto y vuelve a probar.",
+      "unexpected_response": "El backend contestó algo inesperado. Comprueba que su versión se corresponda con la de esta integración."
+    },
     "abort": {
       "already_configured": "Este backend de DoLu ya está configurado.",
       "incomplete_discovery": "El anuncio no traía la identidad del backend. Comprueba que el backend tenga una versión que se anuncia (0.3.30 o posterior).",
       "single_instance_allowed": "Solo se puede configurar un backend de DoLu: hay uno por casa.",
-      "ignored_entry": "Este backend de DoLu está marcado como ignorado en Home Assistant. Quita esa marca (Ajustes → Dispositivos y servicios → ⋮ → Mostrar integraciones ignoradas) antes de añadirlo a mano."
+      "ignored_entry": "Este backend de DoLu está marcado como ignorado en Home Assistant. Quita esa marca (Ajustes → Dispositivos y servicios → ⋮ → Mostrar integraciones ignoradas) antes de añadirlo a mano.",
+      "fingerprint_mismatch": "El certificado que sirvió la conexión no es el de la huella anunciada. Alguien en la red está suplantando a tu backend de DoLu, así que no se envió nada. Revisa el backend y la red antes de volver a intentarlo.",
+      "identity_mismatch": "El backend se identificó como una instalación distinta de la que se anunció. No se envió nada.",
+      "invalid_proof": "El backend rechazó la prueba de este Home Assistant. Genera un código nuevo y empieza otra vez.",
+      "session_lost": "La conversación del emparejamiento caducó. Genera un código nuevo en el panel de DoLu y empieza otra vez.",
+      "cannot_connect": "No se pudo llegar al backend por HTTPS.",
+      "code_expired": "El código caducó antes de terminar el emparejamiento. Genera uno nuevo y empieza otra vez.",
+      "code_used": "Ese código ya se usó. Genera uno nuevo y empieza otra vez.",
+      "code_locked": "El código está bloqueado tras cinco intentos fallidos. Genera uno nuevo.",
+      "no_active_code": "El backend ya no tiene ningún código de emparejamiento activo.",
+      "too_many_requests": "Demasiados intentos seguidos. Espera un minuto y empieza otra vez.",
+      "unexpected_response": "El backend contestó algo inesperado."
     }
   }
 }
